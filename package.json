@@ -1,0 +1,27 @@
+{
+  "name": "loxberry-logger",
+  "version": "0.0.1",
+  "description": "LoxBerry Logger",
+  "main": "logger.js",
+  "scripts": {
+    "start": "node logger.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nufke/loxberry-logger.git"
+  },
+  "keywords": [
+    "LoxBerry",
+    "Logger"
+  ],
+  "author": "Martin Barnasconi",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/nufke/loxberry-logger/issues"
+  },
+  "homepage": "https://github.com/nufke/loxberry-logger/",
+  "dependencies": {
+    "better-sqlite3": "^8.3.0",
+    "date-and-time": "^3.0.0"
+  }
+}
