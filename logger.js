@@ -11,23 +11,16 @@ const WARN = 4;
 const ERROR = 3;
 
 class Logger {
-  constructor(sqlDb, pkgName, logName, logFile, logLevel) {
+  constructor(sqlDb, logLevel) {
     this.dbh = null;
     this.sqlFile = sqlDb;
     this.logLevel = logLevel;
-    this.params = {
-      package: pkgName,
-      name: logName,
-      filename: logFile,
-      logstart: null,
-      logend: null,
-      lastmodified: null,
-      logkey: null
-    };
+
     this.initLog();
-    this.params.logkey = this.getLogKey();
-    if (this.logLevel >= INFO) stdOut(format('INFO', 'Start logger'));
-    this.startLog();
+
+    if (this.logLevel >= INFO) {
+      stdOut(format('INFO', 'Start logger'));
+    }
   }
 
   initLog(clear=false) {
@@ -64,10 +57,10 @@ class Logger {
     createLogsAttrTable.run();
   }
 
-  startLog() {
+  startLog(pkgName, logName, logFileName, title) {
     if (!this.dbh) return; // cannot start without init
 
-    const key = this.getLogSession();
+    let key = this.getLogSession(logFileName);
     if (key) return; // already a log entry found, no need to create again
 
     const insertLogStart = this.dbh.prepare(`
@@ -76,57 +69,54 @@ class Logger {
       @package, @name, @filename, @logstart, @lastmodified );`);
 
     const resp = insertLogStart.run(
-      { package: this.params.package,
-        name: this.params.name,
-        filename: this.params.filename,
+      { package: pkgName,
+        name: logName,
+        filename: logFileName,
         logstart: this.getDateTime(),
         lastmodified: this.getDateTime()
       }
     );
 
     if (resp && resp.lastInsertRowid) {
-      this.params.logkey = resp.lastInsertRowid;
+      key = resp.lastInsertRowid;
     }
 
-    this.setSessionTitle(this.params.name + ' started');
+    this.setSessionTitle(key, title);
   }
 
-  getSessionByKey() {
-    if (!this.dbh) return; // cannot start without init
-    const selectFromLog = this.dbh.prepare('SELECT PACKAGE, NAME, FILENAME, LOGSTART, LOGEND FROM logs WHERE LOGKEY = ? LIMIT 1;');
-    const resp = selectFromLog.get(this.params.logkey);
-    if (resp && resp.LOGKEY) {
-      return resp.LOGKEY;
-    } else {
-      return null;
-    }
-  }
-
-  endLog() {
+  endLog(logFileName) {
     if (!this.dbh) return; // cannot end without init and log started
+
+    const key = this.getLogKey(logFileName)
+    if (!key) return null; // key not found, cannot end log
+
     const updateLogEnd = this.dbh.prepare('UPDATE logs set LOGEND = @logend, LASTMODIFIED = @lastmodified WHERE LOGKEY = @logkey;');
     const resp = updateLogEnd.run(
       { logend: this.getDateTime(),
         lastmodified: this.getDateTime(),
-        logkey: this.params.logkey
+        logkey: key
       }
     );
   }
 
-  getLogSession() {
+  getLogSession(logFileName) {
     if (!this.dbh) return; // cannot start without init
+
+    const key = this.getLogKey(logFileName)
+    if (!key) return null; // session not found
+
     const selectLogSession = this.dbh.prepare('SELECT PACKAGE, NAME, FILENAME, LOGSTART, LOGEND FROM logs WHERE LOGKEY = ? LIMIT 1;');
-    const resp = selectLogSession.get(this.params.logkey);
+    const resp = selectLogSession.get(key);
     if ((resp === undefined) || (resp && (resp.LOGEND != null) )) {
       return null; // logkey not found or log already ended
     }
-    return this.params.logkey;
+    return key;
   }
 
-  getLogKey() {
+  getLogKey(logFileName) {
     if (!this.dbh) return; // cannot start without init
     const selectLogkey = this.dbh.prepare('SELECT LOGKEY FROM logs WHERE FILENAME LIKE ? ORDER BY LOGSTART DESC LIMIT 1;');
-    const resp = selectLogkey.get(this.params.filename);
+    const resp = selectLogkey.get(logFileName);
 
     if (resp && resp.LOGKEY) {
       return resp.LOGKEY;
@@ -140,37 +130,45 @@ class Logger {
     return date.format(now, 'YYYY-MM-DD HH:mm:ss');
   }
 
-  setSessionTitle(title) {
+  setSessionTitle(key, title) {
     if (!this.dbh) return; // cannot start without init
     const logAttrTitle = this.dbh.prepare("INSERT OR REPLACE INTO logs_attr (keyref, attrib, value) VALUES (@keyref, @attrib, @value);");
     const resp = logAttrTitle.run(
       {
         value: title,
         attrib: 'LOGSTARTMESSAGE',
-        keyref: this.params.logkey
+        keyref: key
       }
     );
     return title;
   }
 
-  closeLog() {
-    if (this.logLevel >= INFO) stdOut(format('INFO', 'Close Logger'));
-    this.endLog();
+  closeLog(logFileName) {
+    if (this.logLevel >= INFO) {
+      stdOut(format('INFO', 'Close Logger'));
+    }
+    this.endLog(logFileName);
     if (this.dbh) {
       this.dbh.close();
     }
   }
 
   info(message) {
-    if (this.logLevel >= INFO) stdOut(format('INFO', message));
+    if (this.logLevel >= INFO) {
+      stdOut(format('INFO', message));
+    }
   }
 
   debug(message) {
-    if (this.logLevel === DEBUG) stdOut(format('DEBUG', message));
+    if (this.logLevel === DEBUG) {
+      stdOut(format('DEBUG', message));
+    }
   }
 
   warn(message) {
-    if (this.logLevel >= WARN) stdOut(format('WARN', message));
+    if (this.logLevel >= WARN) {
+      stdOut(format('WARN', message));
+    }
   }
 
   error(message, error) {
