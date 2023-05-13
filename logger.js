@@ -153,34 +153,27 @@ class Logger {
     }
   }
 
-  info(message) {
+  info(...message) {
     if (this.logLevel >= INFO) {
       stdOut(format('INFO', message));
     }
   }
 
-  debug(message) {
-    if (this.logLevel === DEBUG) {
+  debug(...message) {
+    if (this.logLevel == DEBUG) {
       stdOut(format('DEBUG', message));
     }
   }
 
-  warn(message) {
+  warn(...message) {
     if (this.logLevel >= WARN) {
-      stdOut(format('WARN', message));
+      stdOut(format('WARNING', message));
     }
   }
 
-  error(message, error) {
+  error(...message) {
     if (this.logLevel >= ERROR) {
       stdErr(format('ERROR', message));
-
-      if (error) {
-        if (error.stack) {
-          return stdErr(`    ${error.stack}\n`);
-        }
-        return stdErr(`    ${error.name}: ${error.message}\n`);
-      }
     }
   }
 }
